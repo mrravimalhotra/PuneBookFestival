@@ -11,9 +11,11 @@ const bodySchema = z.object({
     .array(
       z.object({
         clientRef: z.string().min(8).max(64),
-        token: z.string().max(64).optional(),
-        attendeeId: z.uuid().optional(),
-        scannedAt: z.iso.datetime({ offset: true }),
+        // Lenient on purpose: a malformed item is reported as 'invalid' on its
+        // own, so one bad scan can never block an offline queue from syncing.
+        token: z.string().max(2048).optional(),
+        attendeeId: z.string().max(64).optional(),
+        scannedAt: z.string().max(64),
       }),
     )
     .min(1)
@@ -43,7 +45,10 @@ export async function POST(request: Request) {
   const results: CheckinResultItem[] = [];
 
   for (const item of parsed.data.items) {
-    const attendeeId = item.attendeeId ?? verifyPassToken(item.token);
+    const attendeeId = item.attendeeId
+      ? (z.uuid().safeParse(item.attendeeId).data ?? null)
+      : verifyPassToken(item.token);
+    const scannedAt = z.iso.datetime({ offset: true }).safeParse(item.scannedAt).data;
     if (!attendeeId) {
       results.push({ clientRef: item.clientRef, status: 'invalid', final: true });
       continue;
@@ -53,7 +58,7 @@ export async function POST(request: Request) {
       p_method: 'staff',
       p_staff_id: user.id,
       p_client_ref: item.clientRef,
-      p_scanned_at: item.scannedAt,
+      p_scanned_at: scannedAt,
     });
     if (error) {
       log.error('staff.checkin', error, { code: error.code });

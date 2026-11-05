@@ -18,7 +18,31 @@ import {
   type RegisterInput,
 } from '@/lib/validation/register';
 
+/**
+ * Values typed before hydration (slow phones) would be wiped when React Hook
+ * Form attaches. Read them from the server-rendered DOM on the first client
+ * render and use them as defaults so nothing the visitor typed is lost.
+ */
+function readPrehydrationValues(): Partial<RegisterInput> {
+  if (typeof document === 'undefined') return {};
+  const form = document.getElementById('register-form') as HTMLFormElement | null;
+  if (!form) return {};
+  const out: Record<string, unknown> = {};
+  for (const name of ['fullName', 'mobile', 'email', 'gender', 'age', 'city', 'area'] as const) {
+    const el = form.elements.namedItem(name) as HTMLInputElement | HTMLSelectElement | null;
+    if (el && 'value' in el && el.value) out[name] = el.value;
+  }
+  const dates = [...form.querySelectorAll<HTMLInputElement>('input[name="dates"]:checked')].map(
+    (i) => i.value,
+  );
+  if (dates.length) out.dates = dates;
+  const consent = form.elements.namedItem('consent') as HTMLInputElement | null;
+  if (consent?.checked) out.consent = true;
+  return out as Partial<RegisterInput>;
+}
+
 export function RegisterForm({ days }: { days: string[] }) {
+  const [prehydration] = useState(readPrehydrationValues);
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [formError, setFormError] = useState<string | null>(null);
@@ -34,7 +58,7 @@ export function RegisterForm({ days }: { days: string[] }) {
   } = useForm<RegisterInput, unknown, RegisterData>({
     resolver: zodResolver(registerSchema),
     mode: 'onTouched',
-    defaultValues: { dates: days.length === 1 ? days : [], area: '', website: '' },
+    defaultValues: { dates: days.length === 1 ? days : [], area: '', website: '', ...prehydration },
   });
 
   const chosen = useWatch({ control, name: 'dates' }) ?? [];
@@ -65,6 +89,7 @@ export function RegisterForm({ days }: { days: string[] }) {
 
   return (
     <form
+      id="register-form"
       onSubmit={handleSubmit(onSubmit)}
       noValidate
       className="space-y-5"

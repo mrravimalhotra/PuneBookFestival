@@ -19,6 +19,7 @@ env:
   PASS_TOKEN_SECRET: ci-pass-secret-0123456789-abcdefghijklmnop
   SELF_CHECKIN_SECRET: ci-self-secret-0123456789-abcdefghijklmnop
   NEXT_TELEMETRY_DISABLED: '1'
+  RATE_LIMIT_SCALE: '10'
 
 jobs:
   checks:

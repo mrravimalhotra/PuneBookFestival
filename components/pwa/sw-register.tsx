@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 /**
  * Registers the service worker and shows a "New version available" banner
@@ -7,12 +7,16 @@ import { useEffect, useState } from 'react';
  */
 export function ServiceWorkerRegister({ message, action }: { message: string; action: string }) {
   const [waiting, setWaiting] = useState<ServiceWorker | null>(null);
+  const userRequestedUpdate = useRef(false);
 
   useEffect(() => {
     if (!('serviceWorker' in navigator) || process.env.NODE_ENV !== 'production') return;
+    // Reload only when the user asked for the new version. The first install
+    // also fires controllerchange (clients.claim) and must NOT reload the page,
+    // or a visitor would lose whatever they were typing.
     let refreshing = false;
     const onControllerChange = () => {
-      if (refreshing) return;
+      if (refreshing || !userRequestedUpdate.current) return;
       refreshing = true;
       window.location.reload();
     };
@@ -49,7 +53,10 @@ export function ServiceWorkerRegister({ message, action }: { message: string; ac
       <button
         type="button"
         className="text-brand-800 min-h-11 rounded-lg bg-white px-4 font-semibold"
-        onClick={() => waiting.postMessage({ type: 'SKIP_WAITING' })}
+        onClick={() => {
+          userRequestedUpdate.current = true;
+          waiting.postMessage({ type: 'SKIP_WAITING' });
+        }}
       >
         {action}
       </button>

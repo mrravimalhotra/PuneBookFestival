@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
 import { CheckCircle2, Circle } from 'lucide-react';
+import { connection } from 'next/server';
+import { unstable_rethrow } from 'next/navigation';
 import { Suspense } from 'react';
 import { formatClock } from '@/lib/format';
 import { t } from '@/lib/i18n';
@@ -30,6 +32,8 @@ export default function PassPage(props: PageProps<'/pass/[token]'>) {
 }
 
 async function PassContent({ params, searchParams }: PageProps<'/pass/[token]'>) {
+  // Personal data: always rendered per request, never prerendered.
+  await connection();
   const [{ token }, sp] = await Promise.all([params, searchParams]);
   const attendeeId = verifyPassToken(token);
   if (!attendeeId) return <InvalidPass />;
@@ -38,6 +42,7 @@ async function PassContent({ params, searchParams }: PageProps<'/pass/[token]'>)
   try {
     pass = await loadPass(attendeeId);
   } catch (err) {
+    unstable_rethrow(err);
     log.error('pass.load', err);
     return <Alert tone="danger">{t('errors.genericText')}</Alert>;
   }

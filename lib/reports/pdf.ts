@@ -1,41 +1,42 @@
 import 'server-only';
-import { createRequire } from 'node:module';
-import path from 'node:path';
+import pdfmakeModule from 'pdfmake';
+import vfsFonts from 'pdfmake/build/vfs_fonts';
 import type { Content, TDocumentDefinitions } from 'pdfmake/interfaces';
 import { formatDateRange, formatDateTime } from '@/lib/format';
 import type { Branding, PdfImage } from './branding';
-
-const require = createRequire(import.meta.url);
 
 type PdfMake = {
   addFonts: (fonts: Record<string, Record<string, string>>) => void;
   setUrlAccessPolicy: (cb: (url: string) => boolean) => void;
   setLocalAccessPolicy: (cb: (p: string) => boolean) => void;
+  virtualfs: { writeFileSync: (name: string, content: Buffer) => void };
   createPdf: (doc: TDocumentDefinitions) => { getBuffer: () => Promise<Buffer> };
 };
 
-let instance: PdfMake | null = null;
+let ready = false;
 
-/** pdfmake configured with bundled Roboto fonts; network and other file access denied. */
+/**
+ * pdfmake with its bundled Roboto fonts loaded into the virtual file system
+ * (no file paths, so it works on Vercel, next start and Docker standalone).
+ * Network and local file access are denied: images are always data URLs.
+ */
 function pdfmake(): PdfMake {
-  if (instance) return instance;
-  const pm = require('pdfmake') as PdfMake;
-  const fontDir = path.join(
-    path.dirname(require.resolve('pdfmake/package.json')),
-    'fonts',
-    'Roboto',
-  );
+  const pm = pdfmakeModule as unknown as PdfMake;
+  if (ready) return pm;
+  const fonts = vfsFonts as unknown as Record<string, string>;
+  for (const [name, b64] of Object.entries(fonts))
+    pm.virtualfs.writeFileSync(name, Buffer.from(b64, 'base64'));
   pm.addFonts({
     Roboto: {
-      normal: path.join(fontDir, 'Roboto-Regular.ttf'),
-      bold: path.join(fontDir, 'Roboto-Medium.ttf'),
-      italics: path.join(fontDir, 'Roboto-Italic.ttf'),
-      bolditalics: path.join(fontDir, 'Roboto-MediumItalic.ttf'),
+      normal: 'Roboto-Regular.ttf',
+      bold: 'Roboto-Medium.ttf',
+      italics: 'Roboto-Italic.ttf',
+      bolditalics: 'Roboto-MediumItalic.ttf',
     },
   });
   pm.setUrlAccessPolicy(() => false);
-  pm.setLocalAccessPolicy((p) => path.resolve(p).startsWith(fontDir));
-  instance = pm;
+  pm.setLocalAccessPolicy(() => false);
+  ready = true;
   return pm;
 }
 
@@ -100,15 +101,13 @@ export async function renderReportPdf(opts: {
       stack: [
         sponsorLogos.length
           ? ({
-              columns: sponsorLogos
-                .slice(0, 8)
-                .map(
-                  (l) =>
-                    ({
-                      ...(imageNode(l.image, [56, 24]) as object),
-                      width: 60,
-                    }) as unknown as Content,
-                ),
+              columns: sponsorLogos.slice(0, 8).map(
+                (l) =>
+                  ({
+                    ...(imageNode(l.image, [56, 24]) as object),
+                    width: 60,
+                  }) as unknown as Content,
+              ),
               columnGap: 6,
             } as unknown as Content)
           : { text: '' },

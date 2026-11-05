@@ -33,14 +33,12 @@ export async function createStaffAction(_prev: unknown, formData: FormData): Pro
     });
     if (error || !data.user) return fail(error?.message ?? 'Could not create the account.');
 
-    const { error: pErr } = await admin
-      .from('profiles')
-      .insert({
-        id: data.user.id,
-        full_name: parsed.data.full_name,
-        email: parsed.data.email,
-        role: 'staff',
-      });
+    const { error: pErr } = await admin.from('profiles').insert({
+      id: data.user.id,
+      full_name: parsed.data.full_name,
+      email: parsed.data.email,
+      role: 'staff',
+    });
     if (pErr) {
       await admin.auth.admin.deleteUser(data.user.id);
       return fail(pErr.message);

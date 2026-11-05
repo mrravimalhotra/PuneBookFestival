@@ -28,12 +28,21 @@ const NEVER = [/^\\/admin(\\/|$)/, /^\\/api(\\/|$)/, /^\\/staff\\/login/];
 self.addEventListener('install', (event) => {
   event.waitUntil((async () => {
     const cache = await caches.open(SHELL);
+    const assets = new Set();
     await Promise.all(PRECACHE.map(async (url) => {
       try {
         const res = await fetch(url, { cache: 'reload', credentials: 'same-origin' });
-        if (res.ok) await cache.put(url, res);
+        if (!res.ok) return;
+        if ((res.headers.get('content-type') || '').includes('text/html')) {
+          // Also precache the JS/CSS each shell page needs, so it boots offline.
+          const html = await res.clone().text();
+          for (const m of html.matchAll(/["'](\\/_next\\/static\\/[^"'?#]+)["']/g)) assets.add(m[1]);
+        }
+        await cache.put(url, res);
       } catch (e) { /* tolerate a missing page */ }
     }));
+    const statics = await caches.open(STATIC);
+    await Promise.all([...assets].map((a) => statics.add(a).catch(() => {})));
     // First install: activate at once. Updates wait for the user (update banner).
     if (!self.registration.active) await self.skipWaiting();
   })());

@@ -5,12 +5,21 @@ import { serverEnv } from '@/lib/env';
 import { log } from '@/lib/logger';
 import { createServiceClient } from '@/lib/supabase/service';
 
+/**
+ * Per-IP limits. Generous enough for many visitors behind one venue/college
+ * Wi-Fi IP, tight enough to stop scripted abuse. RATE_LIMIT_SCALE (default 1)
+ * multiplies every limit, e.g. for load tests or busy shared networks.
+ */
 export const LIMITS = {
-  register: { limit: 10, windowSeconds: 600 },
-  myPass: { limit: 20, windowSeconds: 600 },
-  selfCheckin: { limit: 20, windowSeconds: 300 },
-  passView: { limit: 120, windowSeconds: 60 },
+  register: { limit: 30, windowSeconds: 600 },
+  myPass: { limit: 30, windowSeconds: 600 },
+  selfCheckin: { limit: 60, windowSeconds: 300 },
 } as const;
+
+function scale(): number {
+  const n = Number(process.env.RATE_LIMIT_SCALE ?? 1);
+  return Number.isFinite(n) && n > 0 ? n : 1;
+}
 
 export async function clientIp(): Promise<string> {
   const h = await headers();
@@ -33,7 +42,7 @@ export async function rateLimit(scope: keyof typeof LIMITS): Promise<boolean> {
   const ip = await clientIp();
   const { data, error } = await createServiceClient().rpc('rate_limit_hit', {
     p_key: hashKey(scope, ip),
-    p_limit: limit,
+    p_limit: Math.max(1, Math.round(limit * scale())),
     p_window_seconds: windowSeconds,
   });
   if (error) {

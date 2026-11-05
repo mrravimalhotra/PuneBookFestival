@@ -1,6 +1,7 @@
 import 'server-only';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
+import { connection } from 'next/server';
 import { publicEnv } from '@/lib/env-public';
 import type { Database } from './database.types';
 
@@ -9,6 +10,8 @@ import type { Database } from './database.types';
  * that user. Use in Server Components, Server Actions and Route Handlers.
  */
 export async function createClient() {
+  // Per-user data is never prerendered (supabase-js also reads the clock).
+  await connection();
   const env = publicEnv();
   const cookieStore = await cookies();
   return createServerClient<Database>(
