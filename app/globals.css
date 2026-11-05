@@ -1,0 +1,85 @@
+@import 'tailwindcss';
+
+/*
+ * Design tokens. Light theme (readable in bright sunlight at the gate).
+ * All text/background pairs meet WCAG 2.1 AA contrast.
+ */
+@theme {
+  --font-sans: var(--font-mukta), ui-sans-serif, system-ui, sans-serif;
+
+  --color-brand-50: #fdf3f3;
+  --color-brand-100: #fbe4e4;
+  --color-brand-200: #f6c8c9;
+  --color-brand-600: #a3202f;
+  --color-brand-700: #891a27;
+  --color-brand-800: #6e1520;
+  --color-brand-900: #4f0f17;
+
+  --color-accent-100: #fdf0d5;
+  --color-accent-300: #f8c56a;
+  --color-accent-500: #e59a12;
+  --color-accent-700: #8a5a06;
+
+  --color-ink: #1c1917;
+  --color-muted: #57534e;
+  --color-line: #e7e5e4;
+  --color-paper: #fffdf9;
+  --color-card: #ffffff;
+
+  --color-success-50: #ecfdf3;
+  --color-success-600: #15803d;
+  --color-success-700: #166534;
+  --color-warning-50: #fffbeb;
+  --color-warning-500: #f59e0b;
+  --color-warning-800: #92400e;
+  --color-danger-50: #fef2f2;
+  --color-danger-600: #dc2626;
+  --color-danger-700: #b91c1c;
+
+  --radius-card: 1rem;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    color-scheme: light;
+  }
+  body {
+    @apply bg-paper text-ink antialiased;
+    font-family: var(--font-sans);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+  :focus-visible {
+    outline: 3px solid var(--color-accent-500);
+    outline-offset: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  .container-page {
+    @apply mx-auto w-full max-w-6xl px-4 sm:px-6;
+  }
+  .prose-text p + p {
+    @apply mt-3;
+  }
+  .skip-link {
+    @apply focus:bg-ink sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:px-4 focus:py-2 focus:text-white;
+  }
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+}

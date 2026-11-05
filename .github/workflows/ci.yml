@@ -1,0 +1,139 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # Placeholder values so the build can validate env vars. E2E uses the local
+  # Supabase started below; nothing here points at real data.
+  NEXT_PUBLIC_APP_URL: http://localhost:3100
+  PASS_TOKEN_SECRET: ci-pass-secret-0123456789-abcdefghijklmnop
+  SELF_CHECKIN_SECRET: ci-self-secret-0123456789-abcdefghijklmnop
+  NEXT_TELEMETRY_DISABLED: '1'
+
+jobs:
+  checks:
+    name: Type check, lint, unit tests, build
+    runs-on: ubuntu-latest
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-anon-key-000000000000
+      SUPABASE_SERVICE_ROLE_KEY: ci-placeholder-service-key-000000000
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm format:check
+      - run: pnpm test
+      - run: pnpm build
+      - name: Check no server secrets reached the client bundle
+        run: |
+          if grep -rl -e "$SUPABASE_SERVICE_ROLE_KEY" -e "$PASS_TOKEN_SECRET" -e "$SELF_CHECKIN_SECRET" .next/static; then
+            echo "::error::A server-only secret was found in the client bundle"; exit 1
+          fi
+      - run: pnpm audit --prod --audit-level=high
+
+  database:
+    name: Migrations, RLS tests, advisors (local Supabase)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - run: supabase start -x studio,imgproxy,inbucket,edge-runtime,logflare,vector,supavisor
+      - name: Migrations apply cleanly (db reset)
+        run: supabase db reset
+      - name: RLS and RPC tests
+        run: bash scripts/test-db.sh
+      - name: Supabase advisors (security + performance lints)
+        run: supabase db advisors --type all --level warn --fail-on warn
+      - name: Generated types are up to date
+        run: |
+          supabase gen types typescript --local --schema public > /tmp/types.ts
+          npx --yes prettier@3 --config .prettierrc.json --parser typescript /tmp/types.ts > /tmp/types.fmt.ts
+          diff -q /tmp/types.fmt.ts lib/supabase/database.types.ts || (echo "::error::Run pnpm db:types and commit"; exit 1)
+
+  e2e:
+    name: End-to-end (Playwright) against local Supabase
+    runs-on: ubuntu-latest
+    needs: [checks]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - run: supabase start -x studio,imgproxy,inbucket,edge-runtime,logflare,vector,supavisor
+      - name: Export local Supabase env
+        run: |
+          supabase status -o env \
+            --override-name api.url=NEXT_PUBLIC_SUPABASE_URL \
+            --override-name auth.anon_key=NEXT_PUBLIC_SUPABASE_ANON_KEY \
+            --override-name auth.service_role_key=SUPABASE_SERVICE_ROLE_KEY \
+            | grep -E '^(NEXT_PUBLIC_SUPABASE_URL|NEXT_PUBLIC_SUPABASE_ANON_KEY|SUPABASE_SERVICE_ROLE_KEY)=' \
+            | sed 's/"//g' >> "$GITHUB_ENV"
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm build
+      - name: Seed admin and staff for e2e
+        env:
+          ADMIN_BOOTSTRAP_EMAIL: admin@e2e.local
+          ADMIN_BOOTSTRAP_PASSWORD: e2e-admin-pass-1234
+        run: pnpm seed:admin
+      - run: pnpm test:e2e
+        env:
+          E2E_ADMIN_EMAIL: admin@e2e.local
+          E2E_ADMIN_PASSWORD: e2e-admin-pass-1234
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report
+          retention-days: 7
+
+  lighthouse:
+    name: Lighthouse CI (performance budgets)
+    runs-on: ubuntu-latest
+    needs: [checks]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - run: supabase start -x studio,imgproxy,inbucket,edge-runtime,logflare,vector,supavisor
+      - name: Export local Supabase env
+        run: |
+          supabase status -o env \
+            --override-name api.url=NEXT_PUBLIC_SUPABASE_URL \
+            --override-name auth.anon_key=NEXT_PUBLIC_SUPABASE_ANON_KEY \
+            --override-name auth.service_role_key=SUPABASE_SERVICE_ROLE_KEY \
+            | grep -E '^(NEXT_PUBLIC_SUPABASE_URL|NEXT_PUBLIC_SUPABASE_ANON_KEY|SUPABASE_SERVICE_ROLE_KEY)=' \
+            | sed 's/"//g' >> "$GITHUB_ENV"
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: pnpm lhci
