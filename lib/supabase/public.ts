@@ -14,6 +14,10 @@ export function createPublicClient() {
   const env = publicEnv();
   client = createClient<Database>(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_ANON_KEY, {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+    // Caching happens in our 'use cache' functions (tagged, invalidated on
+    // admin saves). Keep these HTTP calls out of Next's fetch cache, which
+    // persists across builds and could bake stale data into a new deploy.
+    global: { fetch: (input, init) => fetch(input, { ...init, cache: 'no-store' }) },
   });
   return client;
 }

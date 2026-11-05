@@ -66,7 +66,55 @@ test.describe('staff and admin', () => {
     await expect(page.getByText(/Checked in today at/)).toBeVisible();
   });
 
+  test('offline scans queued on the device sync once, without double counting', async ({
+    page,
+    baseURL,
+  }) => {
+    const r = await register(page, { mobile: randomMobile(), name: 'Queue Tester' });
+    const token = r.passUrl.split('/pass/')[1];
+    await loginAsAdmin(page);
+    await page.goto('/staff/scan');
+    // Simulate two scans of the same pass made while the network was down.
+    await page.evaluate(async (tok) => {
+      const db: IDBDatabase = await new Promise((res, rej) => {
+        const req = indexedDB.open('pbf-scanner', 1);
+        req.onupgradeneeded = () => req.result.createObjectStore('queue', { keyPath: 'clientRef' });
+        req.onsuccess = () => res(req.result);
+        req.onerror = () => rej(req.error);
+      });
+      await new Promise<void>((res) => {
+        const tx = db.transaction('queue', 'readwrite');
+        const at = new Date().toISOString();
+        tx.objectStore('queue').put({
+          clientRef: `offline-${Date.now()}-1`,
+          token: tok,
+          scannedAt: at,
+        });
+        tx.objectStore('queue').put({
+          clientRef: `offline-${Date.now()}-2`,
+          token: tok,
+          scannedAt: at,
+        });
+        tx.oncomplete = () => res();
+      });
+    }, token);
+    await page.reload();
+    const pending = page.getByRole('button', { name: /2 scan\(s\) waiting to sync/ });
+    await expect(pending).toBeVisible();
+    await pending.click();
+    await expect(pending).toBeHidden({ timeout: 10_000 });
+
+    const check = await page.request.post('/api/staff/checkins', {
+      headers: { origin: baseURL! },
+      data: {
+        items: [{ clientRef: `ref-${Date.now()}-z`, token, scannedAt: new Date().toISOString() }],
+      },
+    });
+    expect((await check.json()).results[0].status).toBe('already');
+  });
+
   test('admin dashboard, draw, winners and reports', async ({ page }) => {
+    test.setTimeout(300_000); // ten full exports; slower on large datasets
     // Make sure someone is checked in today.
     await register(page, { mobile: randomMobile(), name: 'Draw Candidate' });
     await loginAsAdmin(page);
@@ -78,7 +126,9 @@ test.describe('staff and admin', () => {
 
     for (const report of ['attendees', 'daily', 'checkins', 'demographics', 'winners']) {
       for (const format of ['xlsx', 'pdf'] as const) {
-        const res = await page.request.get(`/api/admin/reports/${report}?format=${format}`);
+        const res = await page.request.get(`/api/admin/reports/${report}?format=${format}`, {
+          timeout: 120_000,
+        });
         expect(res.status(), `${report}.${format}`).toBe(200);
         const body = await res.body();
         expect(body.subarray(0, format === 'pdf' ? 4 : 2).toString()).toBe(

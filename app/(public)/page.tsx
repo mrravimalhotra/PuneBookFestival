@@ -61,32 +61,30 @@ async function Hero() {
             <span className="text-accent-300">{settings.festival_year}</span>
           </h1>
           <dl className="mt-6 grid gap-3 text-lg sm:grid-cols-3 sm:gap-6">
-            <div className="flex items-center gap-3">
-              <CalendarDays aria-hidden="true" className="text-accent-300 size-6 shrink-0" />
-              <div>
-                <dt className="sr-only">{t('home.dates')}</dt>
-                <dd>{formatDateRange(settings.start_date, settings.end_date)}</dd>
+            {[
+              {
+                icon: CalendarDays,
+                label: t('home.dates'),
+                value: formatDateRange(settings.start_date, settings.end_date),
+              },
+              {
+                icon: Clock,
+                label: t('home.timings'),
+                value: t('common.dailyTimings', {
+                  open: formatTime(settings.daily_open_time),
+                  close: formatTime(settings.daily_close_time),
+                }),
+              },
+              { icon: MapPin, label: t('home.venue'), value: settings.venue },
+            ].map(({ icon: Icon, label, value }) => (
+              <div key={label} className="flex items-center gap-3">
+                <dt>
+                  <Icon aria-hidden="true" className="text-accent-300 size-6 shrink-0" />
+                  <span className="sr-only">{label}</span>
+                </dt>
+                <dd>{value}</dd>
               </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <Clock aria-hidden="true" className="text-accent-300 size-6 shrink-0" />
-              <div>
-                <dt className="sr-only">{t('home.timings')}</dt>
-                <dd>
-                  {t('common.dailyTimings', {
-                    open: formatTime(settings.daily_open_time),
-                    close: formatTime(settings.daily_close_time),
-                  })}
-                </dd>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <MapPin aria-hidden="true" className="text-accent-300 size-6 shrink-0" />
-              <div>
-                <dt className="sr-only">{t('home.venue')}</dt>
-                <dd>{settings.venue}</dd>
-              </div>
-            </div>
+            ))}
           </dl>
           <div className="mt-8 flex flex-wrap gap-3">
             {settings.registration_open ? (

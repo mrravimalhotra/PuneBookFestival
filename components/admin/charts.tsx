@@ -133,7 +133,10 @@ export function FootfallChart({ data }: { data: Point[] }) {
           <XAxis dataKey="label" {...axis} />
           <YAxis {...axis} axisLine={false} allowDecimals={false} />
           <Tooltip cursor={{ fill: 'rgba(0,0,0,0.04)' }} />
-          <Legend wrapperStyle={{ fontSize: 13, color: INK_MUTED }} />
+          <Legend
+            wrapperStyle={{ fontSize: 13 }}
+            formatter={(value: string) => <span style={{ color: INK_MUTED }}>{value}</span>}
+          />
           <Bar
             dataKey="expected"
             name="Expected"

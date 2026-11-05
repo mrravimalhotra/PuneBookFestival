@@ -34,8 +34,11 @@ export const REPORTS: Record<ReportKey, { title: string; description: string }> 
 export type ReportParams = { filter: AttendeeFilter; from: string; to: string };
 
 const PAGE = 5000;
+/** Safety net: never stream more than this many rows from one report. */
+const MAX_ROWS = 2_000_000;
 
-type Column = { header: string; key: string; width?: number };
+/** pdf: false keeps a column out of the PDF (too wide for a page); Excel always has every column. */
+type Column = { header: string; key: string; width?: number; pdf?: boolean };
 
 /** One sheet section: columns + async row source (streamed page by page). */
 export type Section = {
@@ -65,19 +68,20 @@ export function sectionsFor(key: ReportKey, supabase: Client, p: ReportParams): 
             { header: 'Pass code', key: 'pass_code', width: 13 },
             { header: 'Full name', key: 'full_name' },
             { header: 'Mobile', key: 'mobile', width: 14 },
-            { header: 'Email', key: 'email' },
+            { header: 'Email', key: 'email', pdf: false },
             { header: 'Gender', key: 'gender', width: 12 },
             { header: 'Age', key: 'age', width: 6 },
-            { header: 'Age band', key: 'age_band', width: 12 },
+            { header: 'Age band', key: 'age_band', width: 12, pdf: false },
             { header: 'City', key: 'city' },
-            { header: 'Area', key: 'area' },
+            { header: 'Area', key: 'area', pdf: false },
             { header: 'Days chosen', key: 'dates' },
             { header: 'Days checked in', key: 'checkin_days', width: 10 },
-            { header: 'Registered (IST)', key: 'created_at', width: 22 },
-            { header: 'Consent version', key: 'consent', width: 10 },
+            { header: 'Registered (IST)', key: 'created_at', width: 22, pdf: false },
+            { header: 'Consent version', key: 'consent', width: 10, pdf: false },
           ],
           async *rows() {
             let after: { created: string; id: string } | null = null;
+            let total = 0;
             for (;;) {
               const res = await supabase.rpc('admin_attendee_search', {
                 p_query: p.filter.q || undefined,
@@ -110,6 +114,8 @@ export function sectionsFor(key: ReportKey, supabase: Client, p: ReportParams): 
               if (data.length < PAGE) return;
               const last: SearchRow = data[data.length - 1];
               after = { created: last.created_at, id: last.id };
+              total += data.length;
+              if (total >= MAX_ROWS) return;
             }
           },
         },
@@ -175,6 +181,7 @@ export function sectionsFor(key: ReportKey, supabase: Client, p: ReportParams): 
           ],
           async *rows() {
             let after: { at: string; id: number } | null = null;
+            let total = 0;
             for (;;) {
               const res = await supabase.rpc('admin_checkin_log', {
                 p_from: p.from || undefined,
@@ -197,6 +204,8 @@ export function sectionsFor(key: ReportKey, supabase: Client, p: ReportParams): 
               if (data.length < PAGE) return;
               const last: LogRow = data[data.length - 1];
               after = { at: last.checkin_at, id: last.id };
+              total += data.length;
+              if (total >= MAX_ROWS) return;
             }
           },
         },
@@ -243,7 +252,7 @@ export function sectionsFor(key: ReportKey, supabase: Client, p: ReportParams): 
             { header: 'Email', key: 'email' },
             { header: 'Pass code', key: 'pass_code', width: 13 },
             { header: 'Published', key: 'published', width: 10 },
-            { header: 'Drawn by', key: 'by' },
+            { header: 'Drawn by', key: 'by', pdf: false },
             { header: 'Prize', key: 'prize' },
           ],
           async *rows() {
@@ -312,12 +321,13 @@ export async function writeWorkbook(
 export async function pdfBody(sections: Section[]): Promise<Content[]> {
   const body: Content[] = [];
   for (const s of sections) {
+    const cols = s.columns.filter((c) => c.pdf !== false);
     const rows: Array<Array<string | number>> = [];
     let total = 0;
     for await (const batch of s.rows()) {
       total += batch.length;
       for (const r of batch) {
-        if (rows.length < PDF_ROW_CAP) rows.push(s.columns.map((c) => r[c.key] ?? ''));
+        if (rows.length < PDF_ROW_CAP) rows.push(cols.map((c) => r[c.key] ?? ''));
       }
     }
     if (sections.length > 1) body.push({ text: s.sheet, style: 'h2' });
@@ -328,7 +338,7 @@ export async function pdfBody(sections: Section[]): Promise<Content[]> {
     });
     body.push(
       pdfTable(
-        s.columns.map((c) => c.header),
+        cols.map((c) => c.header),
         rows,
       ),
     );
