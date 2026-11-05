@@ -17,6 +17,12 @@ const eslintConfig = defineConfig([
         { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
       ],
       'no-console': ['error', { allow: ['warn', 'error'] }],
+      'jsx-a11y/label-has-associated-control': [
+        'error',
+        { controlComponents: ['Input', 'Select', 'Textarea'], assert: 'either', depth: 3 },
+      ],
+      // The spec mandates alt text of the form "Photo of <name>, <designation>".
+      'jsx-a11y/img-redundant-alt': 'off',
     },
   },
   {
