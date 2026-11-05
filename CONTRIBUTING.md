@@ -32,6 +32,9 @@ lint-staged (ESLint + Prettier) and the type check.
 
 ## Adding a database migration
 
+Migrations are deployed to production automatically by the Supabase GitHub
+integration when they reach `main`, so a merged migration is live within minutes.
+
 1. Create a new file. Never edit a migration that has been applied anywhere:
    ```bash
    pnpm exec supabase migration new short_description
@@ -40,10 +43,15 @@ lint-staged (ESLint + Prettier) and the type check.
    `create or replace function`, `drop policy if exists` + `create policy`).
 3. Every new table: `alter table ... enable row level security;` in the same file,
    then explicit policies per operation and role. Wrap auth calls as
-   `(select auth.uid())` / `(select public.is_admin())`, and index the columns the
+   `(select auth.uid())` / `(select private.is_admin())`, and index the columns the
    policies filter on. Never `using (true)` on a table with personal data.
 4. Security-definer functions: `set search_path = ''`, fully qualified names,
    `revoke all ... from public, anon` and grant only to the roles that need them.
+   If anon or signed-in users must call one, put the implementation in the
+   `private` schema (not exposed by the API) and add a `security invoker` wrapper
+   with the same name and arguments in `public` (see migration 0009). The SQL
+   tests fail if a `public` security-definer function is callable by anon or
+   authenticated.
 5. Apply it and regenerate types:
    ```bash
    pnpm exec supabase db reset

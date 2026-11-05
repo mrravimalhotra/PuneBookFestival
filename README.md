@@ -129,23 +129,43 @@ environment variables. Never point a preview deployment at production data.
 
 ### 1. Supabase (hosted)
 
-1. Create a project (for Pune visitors choose **ap-south-1 / Mumbai**).
-2. Link it and push the migrations:
-   ```bash
-   pnpm exec supabase link --project-ref <project-ref>
-   ```
-   ```bash
-   pnpm exec supabase db push
-   ```
-3. In **Authentication → Providers → Email**, turn **off** "Allow new users to sign up"
-   (staff accounts are created by admins only). Keep email confirmation off or on as you prefer;
-   staff accounts are created pre-confirmed.
-4. Run the advisors and fix any warning before going live:
-   ```bash
-   pnpm exec supabase db advisors --remote --type all --level warn
-   ```
-5. Use the **transaction pooler** (Supavisor) connection string for any direct
-   database tooling; the app itself talks to Supabase over HTTPS.
+Production project: **`pune-book-festival`** (ref `egneabekhbwjkuqvkujo`, Mumbai / ap-south-1).
+
+**Migrations deploy automatically from GitHub.** The project uses the
+[Supabase GitHub integration](https://supabase.com/docs/guides/deployment/branching/github-integration)
+(works on the Free plan):
+
+1. Supabase Dashboard → **Project Settings → Integrations → GitHub Integration →
+   Authorize GitHub**, then choose `mrravimalhotra/PuneBookFestival`.
+2. **Working directory:** `.` (the `supabase/` folder is at the repository root).
+3. **Production branch:** `main`. Turn on **Deploy to production**.
+4. Leave **Automatic branching** off (preview branches need the Pro plan).
+5. Optional: in GitHub → Settings → Branches, require the Supabase check to pass
+   before merging to `main`, so a broken migration cannot reach production.
+
+From then on, every new file in `supabase/migrations/` that lands on `main` is
+applied to production. Never edit a migration that has already been deployed;
+add a new one (see CONTRIBUTING.md).
+
+Manual alternative (CLI, from a trusted machine):
+
+```bash
+pnpm exec supabase link --project-ref egneabekhbwjkuqvkujo
+```
+
+```bash
+pnpm exec supabase db push
+```
+
+Also, once per project:
+
+- **Authentication → Sign In / Providers → Email:** turn **off** "Allow new users to sign up"
+  (staff accounts are created by admins only).
+- Check the advisors show no warnings (`supabase db advisors --remote --type all --level warn`,
+  or Dashboard → Advisors).
+- Use the **transaction pooler** (Supavisor) connection string for any direct
+  database tooling; the app itself talks to Supabase over HTTPS.
+- Keep a separate staging project for testing risky migrations when the plan allows it.
 
 ### 2. Vercel (recommended)
 

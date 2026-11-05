@@ -384,5 +384,19 @@ do $$ begin
     'RLS enabled on every public table');
 end $$;
 
+-- Supabase advisor lints 0028/0029: no SECURITY DEFINER function in the
+-- exposed `public` schema may be callable by anon or signed-in users.
+do $$
+declare offenders text;
+begin
+  select string_agg(p.oid::regprocedure::text, ', ') into offenders
+  from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+  where n.nspname = 'public' and p.prosecdef
+    and (has_function_privilege('anon', p.oid, 'execute')
+         or has_function_privilege('authenticated', p.oid, 'execute'));
+  perform tests.assert(offenders is null, 'no public security-definer function is callable by anon/authenticated'
+    || coalesce(' (found: ' || offenders || ')', ''));
+end $$;
+
 \echo 'All database tests passed.'
 rollback;

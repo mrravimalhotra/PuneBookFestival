@@ -40,10 +40,8 @@ for f in "$ROOT"/supabase/migrations/*.sql; do
   PGOPTIONS='-c client_min_messages=warning' "${PSQL[@]}" -f "$f"
 done
 
-echo "→ re-applying migrations (idempotency check)"
-for f in "$ROOT"/supabase/migrations/*.sql; do
-  PGOPTIONS='-c client_min_messages=warning' "${PSQL[@]}" -f "$f" >/dev/null
-done
+# Migrations run once each, as on Supabase (later ones may move objects that
+# earlier ones create, e.g. 0009 moves definer functions into `private`).
 
 for f in "$ROOT"/supabase/tests/sql/*.test.sql; do
   echo "→ test $(basename "$f")"
