@@ -129,7 +129,7 @@ environment variables. Never point a preview deployment at production data.
 
 ### 1. Supabase (hosted)
 
-Production project: **`pune-book-festival`** (ref `egneabekhbwjkuqvkujo`, Mumbai / ap-south-1).
+Production project: **`pune-book-festival`** in the **Acedamic Projects** organisation (ref `weicqanwgecgbjialqkt`, Mumbai / ap-south-1).
 
 **Migrations deploy automatically from GitHub.** The project uses the
 [Supabase GitHub integration](https://supabase.com/docs/guides/deployment/branching/github-integration)
@@ -150,7 +150,7 @@ add a new one (see CONTRIBUTING.md).
 Manual alternative (CLI, from a trusted machine):
 
 ```bash
-pnpm exec supabase link --project-ref egneabekhbwjkuqvkujo
+pnpm exec supabase link --project-ref weicqanwgecgbjialqkt
 ```
 
 ```bash

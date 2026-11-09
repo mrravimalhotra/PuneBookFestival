@@ -4,6 +4,11 @@
 # working directory name when running `supabase init`.
 project_id = "pune-book-festival"
 
+# Hosted production project: weicqanwgecgbjialqkt (ap-south-1). Migrations in
+# supabase/migrations are applied to it automatically by the Supabase GitHub
+# integration when they reach the `main` branch. Auth settings below apply to
+# local development only; set them in the dashboard for production.
+
 [api]
 enabled = true
 # Port to use for the API URL.
