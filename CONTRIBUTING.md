@@ -68,6 +68,17 @@ integration when they reach `main`, so a merged migration is live within minutes
    pnpm exec supabase db advisors --type all --level warn
    ```
 
+## Pull requests merge automatically
+
+When the **CI** workflow passes on a pull request into `main`, the
+**Auto-merge** workflow merges it, and the Supabase GitHub integration then
+deploys any new migrations to production. So **a green CI means live**:
+
+- Open the PR as a **draft**, or add the **`no-auto-merge`** label, to keep it open.
+- Pushing a new commit restarts the wait: only the exact commit CI passed is merged.
+- Pull requests from forks are never merged automatically.
+- Lighthouse runs in the separate **Performance** workflow; it reports but does not block.
+
 ## Before opening a pull request
 
 ```bash

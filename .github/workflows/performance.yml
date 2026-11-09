@@ -1,0 +1,47 @@
+name: Performance
+
+# Lighthouse performance budgets. Reported on every PR but not required for
+# auto-merge (see auto-merge.yml): a budget miss is visible, not blocking.
+on:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: performance-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  NEXT_PUBLIC_APP_URL: http://localhost:3100
+  PASS_TOKEN_SECRET: ci-pass-secret-0123456789-abcdefghijklmnop
+  SELF_CHECKIN_SECRET: ci-self-secret-0123456789-abcdefghijklmnop
+  NEXT_TELEMETRY_DISABLED: '1'
+
+jobs:
+  lighthouse:
+    name: Lighthouse CI (performance budgets)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 3.0.0 # keep in step with the "supabase" devDependency; "latest" needs a rate-limited API call
+      - run: supabase start -x studio,imgproxy,inbucket,edge-runtime,logflare,vector,supavisor
+      - name: Export local Supabase env
+        run: |
+          supabase status -o env \
+            --override-name api.url=NEXT_PUBLIC_SUPABASE_URL \
+            --override-name auth.anon_key=NEXT_PUBLIC_SUPABASE_ANON_KEY \
+            --override-name auth.service_role_key=SUPABASE_SERVICE_ROLE_KEY \
+            | grep -E '^(NEXT_PUBLIC_SUPABASE_URL|NEXT_PUBLIC_SUPABASE_ANON_KEY|SUPABASE_SERVICE_ROLE_KEY)=' \
+            | sed 's/"//g' >> "$GITHUB_ENV"
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: pnpm lhci

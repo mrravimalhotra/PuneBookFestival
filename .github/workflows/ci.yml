@@ -62,7 +62,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - uses: supabase/setup-cli@v1
         with:
-          version: latest
+          version: 3.0.0 # keep in step with the "supabase" devDependency; "latest" needs a rate-limited API call
       - run: supabase start -x studio,imgproxy,inbucket,edge-runtime,logflare,vector,supavisor
       - name: Migrations apply cleanly (db reset)
         run: supabase db reset
@@ -89,7 +89,7 @@ jobs:
           cache: pnpm
       - uses: supabase/setup-cli@v1
         with:
-          version: latest
+          version: 3.0.0 # keep in step with the "supabase" devDependency; "latest" needs a rate-limited API call
       - run: supabase start -x studio,imgproxy,inbucket,edge-runtime,logflare,vector,supavisor
       - name: Export local Supabase env
         run: |
@@ -117,30 +117,3 @@ jobs:
           name: playwright-report
           path: playwright-report
           retention-days: 7
-
-  lighthouse:
-    name: Lighthouse CI (performance budgets)
-    runs-on: ubuntu-latest
-    needs: [checks]
-    steps:
-      - uses: actions/checkout@v5
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v5
-        with:
-          node-version-file: .nvmrc
-          cache: pnpm
-      - uses: supabase/setup-cli@v1
-        with:
-          version: latest
-      - run: supabase start -x studio,imgproxy,inbucket,edge-runtime,logflare,vector,supavisor
-      - name: Export local Supabase env
-        run: |
-          supabase status -o env \
-            --override-name api.url=NEXT_PUBLIC_SUPABASE_URL \
-            --override-name auth.anon_key=NEXT_PUBLIC_SUPABASE_ANON_KEY \
-            --override-name auth.service_role_key=SUPABASE_SERVICE_ROLE_KEY \
-            | grep -E '^(NEXT_PUBLIC_SUPABASE_URL|NEXT_PUBLIC_SUPABASE_ANON_KEY|SUPABASE_SERVICE_ROLE_KEY)=' \
-            | sed 's/"//g' >> "$GITHUB_ENV"
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm build
-      - run: pnpm lhci
