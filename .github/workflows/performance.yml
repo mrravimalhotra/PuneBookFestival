@@ -32,7 +32,7 @@ jobs:
           cache: pnpm
       - uses: supabase/setup-cli@v1
         with:
-          version: latest
+          version: 3.0.0 # keep in step with the "supabase" devDependency; "latest" needs a rate-limited API call
       - run: supabase start -x studio,imgproxy,inbucket,edge-runtime,logflare,vector,supavisor
       - name: Export local Supabase env
         run: |

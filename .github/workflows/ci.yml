@@ -62,7 +62,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - uses: supabase/setup-cli@v1
         with:
-          version: latest
+          version: 3.0.0 # keep in step with the "supabase" devDependency; "latest" needs a rate-limited API call
       - run: supabase start -x studio,imgproxy,inbucket,edge-runtime,logflare,vector,supavisor
       - name: Migrations apply cleanly (db reset)
         run: supabase db reset
@@ -89,7 +89,7 @@ jobs:
           cache: pnpm
       - uses: supabase/setup-cli@v1
         with:
-          version: latest
+          version: 3.0.0 # keep in step with the "supabase" devDependency; "latest" needs a rate-limited API call
       - run: supabase start -x studio,imgproxy,inbucket,edge-runtime,logflare,vector,supavisor
       - name: Export local Supabase env
         run: |
