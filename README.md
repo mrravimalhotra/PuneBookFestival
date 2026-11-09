@@ -169,15 +169,36 @@ Also, once per project:
 
 ### 2. Vercel (recommended)
 
-1. Import the repository. Framework: Next.js. Install command `pnpm install`.
-2. Set the environment variables from `.env.example` for **Production** and,
-   separately, for **Preview** (pointing at the preview Supabase project).
-3. Set the function region to **bom1 (Mumbai)**, next to the database.
-4. Optional: enable Speed Insights, or set `NEXT_PUBLIC_WEB_VITALS=true` to log
-   Web Vitals through `/api/vitals`.
-5. Deploy, then create the first admin by running `pnpm seed:admin` locally with
-   the production env vars (or create the user in the dashboard and set
-   `profiles.role = 'admin'`).
+`vercel.json` pins the build (pnpm) and runs functions in **bom1 (Mumbai)**, next
+to the Supabase project. Production deploys from `main`; every other branch
+and pull request gets a preview deployment.
+
+1. In Vercel: **Add New → Project → Import** `mrravimalhotra/PuneBookFestival`
+   (install the Vercel GitHub app on the repo when asked). Framework: Next.js.
+   Leave the build settings as detected — `vercel.json` sets them.
+2. **Environment Variables** (Production; see `.env.example`):
+
+   | Name                            | Value                                                                                        |
+   | ------------------------------- | -------------------------------------------------------------------------------------------- |
+   | `NEXT_PUBLIC_SUPABASE_URL`      | `https://weicqanwgecgbjialqkt.supabase.co`                                                   |
+   | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase → Project Settings → API Keys → publishable key                                     |
+   | `SUPABASE_SERVICE_ROLE_KEY`     | Supabase → API Keys → secret key (mark **Sensitive**)                                        |
+   | `NEXT_PUBLIC_APP_URL`           | the production URL, e.g. `https://<project>.vercel.app` (no trailing slash)                  |
+   | `PASS_TOKEN_SECRET`             | `openssl rand -base64 48` (Sensitive; never change after launch — it invalidates every pass) |
+   | `SELF_CHECKIN_SECRET`           | a different `openssl rand -base64 48` (Sensitive)                                            |
+
+   Do **not** add the production values to the Preview environment: previews
+   would then write to the production database. Leave Preview unset (preview
+   builds still succeed and show a "try again" page) until a staging Supabase
+   project exists.
+
+3. **Deploy.** Afterwards: **Settings → Git → Production Branch** = `main`.
+4. In Supabase → **Authentication → URL Configuration**, set **Site URL** to the
+   production URL.
+5. Optional: Vercel **Speed Insights**, or `NEXT_PUBLIC_WEB_VITALS=true`.
+
+Every merge to `main` (including auto-merged PRs) then deploys the app to
+Vercel and any new migrations to Supabase.
 
 ### 3. Any other Node host or Docker
 
