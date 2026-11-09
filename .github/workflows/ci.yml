@@ -54,6 +54,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
       - uses: supabase/setup-cli@v1
         with:
           version: latest
@@ -66,9 +72,9 @@ jobs:
         run: supabase db advisors --type all --level warn --fail-on warn
       - name: Generated types are up to date
         run: |
-          supabase gen types typescript --local --schema public > /tmp/types.ts
-          npx --yes prettier@3 --config .prettierrc.json --parser typescript /tmp/types.ts > /tmp/types.fmt.ts
-          diff -q /tmp/types.fmt.ts lib/supabase/database.types.ts || (echo "::error::Run pnpm db:types and commit"; exit 1)
+          supabase gen types typescript --schema public > /tmp/types.ts
+          pnpm exec prettier --stdin-filepath lib/supabase/database.types.ts < /tmp/types.ts > /tmp/types.fmt.ts
+          diff -u lib/supabase/database.types.ts /tmp/types.fmt.ts || (echo "::error::Generated types are stale: run pnpm db:types and commit"; exit 1)
 
   e2e:
     name: End-to-end (Playwright) against local Supabase

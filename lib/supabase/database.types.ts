@@ -708,9 +708,7 @@ export type Database = {
           pass_code: string;
         }[];
       };
-      is_admin: { Args: Record<PropertyKey, never>; Returns: boolean };
       is_service_role: { Args: Record<PropertyKey, never>; Returns: boolean };
-      is_staff: { Args: Record<PropertyKey, never>; Returns: boolean };
       log_audit: {
         Args: { p_action: string; p_details?: Json; p_entity: string; p_entity_id?: string };
         Returns: undefined;
