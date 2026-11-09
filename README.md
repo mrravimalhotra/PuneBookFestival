@@ -129,7 +129,7 @@ environment variables. Never point a preview deployment at production data.
 
 ### 1. Supabase (hosted)
 
-Production project: **`pune-book-festival`** in the **Acedamic Projects** organisation (ref `weicqanwgecgbjialqkt`, Mumbai / ap-south-1).
+Production project: **`PuneBookFestival`** in the **Acedamic Projects** organisation (ref `weicqanwgecgbjialqkt`, Mumbai / ap-south-1).
 
 **Migrations deploy automatically from GitHub.** The project uses the
 [Supabase GitHub integration](https://supabase.com/docs/guides/deployment/branching/github-integration)
