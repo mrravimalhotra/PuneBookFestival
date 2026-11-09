@@ -1,0 +1,50 @@
+name: Auto-merge
+
+# Merges a pull request into main as soon as the CI workflow passes on it:
+# type check, lint, unit tests, build, migrations + database tests, e2e.
+# Merging to main also deploys new Supabase migrations (GitHub integration).
+#
+# Skipped for: PRs from forks, draft PRs, PRs that changed after CI ran,
+# and PRs labelled "no-auto-merge".
+#
+# workflow_run always uses this file from the default branch, so changes to it
+# take effect once they are on main.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: auto-merge
+  cancel-in-progress: false
+
+jobs:
+  merge:
+    if: >-
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - name: Merge the pull request CI just passed
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          pr=$(gh pr list --repo "$REPO" --state open --base main --head "$HEAD_BRANCH" \
+            --json number,headRefOid,isDraft,labels \
+            --jq "map(select(.headRefOid == \"$HEAD_SHA\" and (.isDraft | not)
+                   and ([.labels[].name] | index(\"no-auto-merge\") | not)))[0].number // empty")
+          if [ -z "$pr" ]; then
+            echo "No eligible open PR for $HEAD_BRANCH at $HEAD_SHA (draft, labelled no-auto-merge, or updated since CI ran)."
+            exit 0
+          fi
+          echo "Merging #$pr"
+          gh pr merge "$pr" --repo "$REPO" --merge --delete-branch=false
